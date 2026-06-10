@@ -10,7 +10,9 @@ export default function Header() {
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-zinc-100">NextAI GPT-Engine</h2>
+            <h2 className="text-sm font-semibold text-zinc-100">
+              NextAI GPT-Engine
+            </h2>
             <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 font-mono">
               local-streaming
             </span>
