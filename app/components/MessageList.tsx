@@ -11,6 +11,7 @@ interface Message {
   timestamp: string;
   isStreaming?: boolean;
   error?: boolean;
+  imageBase64?: string;
 }
 
 interface MessageListProps {
@@ -18,25 +19,31 @@ interface MessageListProps {
   error: string | null;
   setError: (err: string | null) => void;
   setUseMock: (useMock: boolean) => void;
-  handleSendMessage: (prompt: string) => void;
+  handleSendMessage: (prompt: string, imageBase64?: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  onEditSave: (msgId: string, newText: string) => void;
+  onRetry: (msgId: string) => void;
+  isLoading: boolean;
 }
 
 const samplePrompts = [
   {
     title: "Create React Table",
     desc: "with responsive tailwind configurations",
-    prompt: "Write a high performance reusable React table layout styled with Tailwind CSS, utilizing flex values.",
+    prompt:
+      "Write a high performance reusable React table layout styled with Tailwind CSS, utilizing flex values.",
   },
   {
     title: "Next.js Streaming Guide",
     desc: "explaining server event protocol details",
-    prompt: "Draft a comprehensive README.md summarizing server sent event properties of text/event-stream headers in modern Node environments.",
+    prompt:
+      "Draft a comprehensive README.md summarizing server sent event properties of text/event-stream headers in modern Node environments.",
   },
   {
     title: "Debug SSE Handler",
     desc: "solving multi-segment buffer split issues",
-    prompt: "Explain how buffer segmentation problems are resolved when parsing multiple JSON lines without manual separators.",
+    prompt:
+      "Explain how buffer segmentation problems are resolved when parsing multiple JSON lines without manual separators.",
   },
 ];
 
@@ -47,6 +54,9 @@ export default function MessageList({
   setUseMock,
   handleSendMessage,
   messagesEndRef,
+  onEditSave,
+  onRetry,
+  isLoading,
 }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto px-4 md:px-0 py-8 space-y-8 select-text">
@@ -62,7 +72,8 @@ export default function MessageList({
                 How can I help you today?
               </h3>
               <p className="text-xs text-zinc-400 font-light max-w-sm">
-                Test and capture micro JSON fragments streaming dynamically into your local environment database system.
+                Test and capture micro JSON fragments streaming dynamically into
+                your local environment database system.
               </p>
             </div>
 
@@ -72,7 +83,7 @@ export default function MessageList({
                 <button
                   key={index}
                   onClick={() => handleSendMessage(chip.prompt)}
-                  className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/30 text-left hover:bg-zinc-800/40 hover:border-zinc-700 transition-all duration-200 group flex flex-col justify-between h-[100px] hover:scale-[1.01]"
+                  className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/30 text-left hover:bg-zinc-800/40 hover:border-zinc-700 transition-all duration-200 group flex flex-col justify-between h-[100px] hover:scale-[1.01] cursor-pointer"
                 >
                   <div>
                     <span className="text-xs font-semibold text-zinc-200 block truncate">
@@ -93,7 +104,13 @@ export default function MessageList({
 
         {/* Message Bubble Thread */}
         {messages.map((msg) => (
-          <MessageItem key={msg.id} msg={msg} />
+          <MessageItem
+            key={msg.id}
+            msg={msg}
+            onEditSave={onEditSave}
+            onRetry={onRetry}
+            isLoading={isLoading}
+          />
         ))}
 
         {/* Error Dialog Box */}
@@ -105,18 +122,30 @@ export default function MessageList({
                 Connection Failed: Fetching context failed
               </p>
               <p className="opacity-90 text-[12.5px] leading-relaxed text-zinc-300 font-light">
-                Standard browser environments prevent cross-protocol calls (from this secure dashboard to insecure local routes like{" "}
+                Standard browser environments prevent cross-protocol calls (from
+                this secure dashboard to insecure local routes like{" "}
                 <code className="bg-[#171717] px-1 py-0.5 rounded text-white text-[11px] font-mono">
-                  http://localhost:3000
-                </code>).
+                  http://localhost:3001
+                </code>
+                ).
               </p>
               <div className="p-3 bg-zinc-950/40 rounded-lg text-[11.5px] font-mono text-zinc-400 space-y-1 border border-zinc-850">
                 <span className="text-zinc-200 block font-semibold mb-1">
                   To Resolve Direct Connection:
                 </span>
-                <div>1. Switch Sidebar Target Mode to <strong className="text-zinc-100">Sandbox</strong> to run and review simulation streams inside this canvas frame.</div>
-                <div>2. Copy and export this completed component to your own Next.js project on local port localhost.</div>
-                <div>3. Assure your local Express controller includes standard CORS headers configuration parameters.</div>
+                <div>
+                  1. Switch Sidebar Target Mode to{" "}
+                  <strong className="text-zinc-100">Sandbox</strong> to run and
+                  review simulation streams inside this canvas frame.
+                </div>
+                <div>
+                  2. Copy and export this completed component to your own
+                  Next.js project on local port localhost.
+                </div>
+                <div>
+                  3. Assure your local Express controller includes standard CORS
+                  headers configuration parameters.
+                </div>
               </div>
               <div className="flex gap-2 pt-1 select-none">
                 <button

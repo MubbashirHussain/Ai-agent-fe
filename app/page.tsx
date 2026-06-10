@@ -15,6 +15,7 @@ interface Message {
   timestamp: string;
   isStreaming?: boolean;
   error?: boolean;
+  imageBase64?: string;
 }
 
 interface LogItem {
@@ -43,11 +44,38 @@ export default function App() {
   // Navigation & Toggle states
   const [showSidebar, setShowSidebar] = useState<boolean>(true);
   const [showConfig, setShowConfig] = useState<boolean>(false);
-  const [apiUrl, setApiUrl] = useState<string>("http://localhost:3001/generate");
+  const [apiUrl, setApiUrl] = useState<string>(
+    "http://localhost:3001/generate",
+  );
   const [rawLogs, setRawLogs] = useState<LogItem[]>([]);
   const [useMock, setUseMock] = useState<boolean>(true); // Default mock for browser canvas compatibility
 
+  // Custom configuration states
+  const [customApiKey, setCustomApiKey] = useState<string>("");
+  const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
+  const [customModel, setCustomModel] = useState<string>("");
+  // Track if selected model supports image input
+  const [modelSupportsImage, setModelSupportsImage] = useState<boolean>(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Auto-scroll on content updates
+  useEffect(() => {
+    // Determine backend base URL from the current apiUrl (e.g., http://localhost:3001/generate)
+    const backendBase = apiUrl.replace(/\/generate$/, "");
+    const modelToCheck = customModel || process.env.MODEL || "";
+    if (!modelToCheck) return;
+    fetch(
+      `${backendBase}/model-support?model=${encodeURIComponent(modelToCheck)}`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setModelSupportsImage(data.supportsImageInput ?? false);
+      })
+      .catch(() => {
+        setModelSupportsImage(false);
+      });
+  }, [customModel, apiUrl]);
 
   // Auto-scroll on content updates
   useEffect(() => {
@@ -64,26 +92,38 @@ export default function App() {
           type,
           content,
         },
-      ].slice(-35)
+      ].slice(-35),
     );
   };
 
   const updateAssistantMessage = (
     id: string,
     newContent: string,
-    isStreaming = true
+    isStreaming = true,
   ) => {
     setMessages((prev) =>
       prev.map((m) =>
-        m.id === id ? { ...m, content: newContent, isStreaming } : m
-      )
+        m.id === id ? { ...m, content: newContent, isStreaming } : m,
+      ),
     );
+  };
+
+  const handleStopStream = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      addLog("warn", "Generation stream aborted by user.");
+      setIsLoading(false);
+      // Mark any currently streaming messages as finished
+      setMessages((prev) =>
+        prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+      );
+    }
   };
 
   const handleMockStream = (prompt: string, assistantMsgId: string) => {
     addLog(
       "info",
-      `Initializing mock engine parsing: "${prompt.substring(0, 35)}..."`
+      `Initializing mock engine parsing: "${prompt.substring(0, 35)}..."`,
     );
 
     const mockResponses = [
@@ -99,6 +139,12 @@ export default function App() {
     let accumulatedText = "";
 
     const interval = setInterval(() => {
+      // Check if abort signal is already triggered
+      if (abortControllerRef.current?.signal.aborted) {
+        clearInterval(interval);
+        return;
+      }
+
       if (currentChunkIndex < chunks.length) {
         const textChunk = chunks[currentChunkIndex];
         accumulatedText += textChunk;
@@ -113,7 +159,7 @@ export default function App() {
         addLog("success", "Streaming sequence completed.");
         addLog(
           "raw_chunk",
-          `data: ${JSON.stringify({ final: accumulatedText })}`
+          `data: ${JSON.stringify({ final: accumulatedText })}`,
         );
 
         updateAssistantMessage(assistantMsgId, accumulatedText, false);
@@ -154,8 +200,12 @@ export default function App() {
     return { jsonStrings, remaining };
   };
 
-  const handleSendMessage = async (userPromptText: string) => {
-    if (!userPromptText.trim() || isLoading) return;
+  const handleSendMessage = async (
+    userPromptText: string,
+    imageBase64?: string,
+  ) => {
+    if (!userPromptText.trim() && !imageBase64) return;
+    if (isLoading) return;
 
     setError(null);
     setIsLoading(true);
@@ -169,7 +219,13 @@ export default function App() {
 
     setMessages((prev) => [
       ...prev,
-      { id: userMsgId, role: "user", content: userPromptText, timestamp },
+      {
+        id: userMsgId,
+        role: "user",
+        content: userPromptText,
+        timestamp,
+        imageBase64,
+      },
     ]);
 
     setMessages((prev) => [
@@ -182,6 +238,10 @@ export default function App() {
         isStreaming: true,
       },
     ]);
+
+    // Instantiate new AbortController
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     if (useMock) {
       handleMockStream(userPromptText, assistantMsgId);
@@ -196,7 +256,14 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: userPromptText }),
+        body: JSON.stringify({
+          prompt: userPromptText,
+          customApiKey: customApiKey || undefined,
+          customBaseUrl: customBaseUrl || undefined,
+          customModel: customModel || undefined,
+          imageBase64: imageBase64 || undefined,
+        }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -213,6 +280,10 @@ export default function App() {
       let streamBuffer = "";
 
       while (true) {
+        if (controller.signal.aborted) {
+          break;
+        }
+
         const { value, done } = await reader.read();
         if (done) break;
 
@@ -243,7 +314,11 @@ export default function App() {
                   updateAssistantMessage(assistantMsgId, accumulatedText, true);
                 } else if (parsed.final !== undefined) {
                   accumulatedText = parsed.final;
-                  updateAssistantMessage(assistantMsgId, accumulatedText, false);
+                  updateAssistantMessage(
+                    assistantMsgId,
+                    accumulatedText,
+                    false,
+                  );
                   addLog("success", "Assembling final stream data.");
                 }
               } catch (jsonErr) {
@@ -254,7 +329,8 @@ export default function App() {
         }
       }
 
-      if (streamBuffer.trim()) {
+      // Check residual buffer on complete
+      if (!controller.signal.aborted && streamBuffer.trim()) {
         const trimmed = streamBuffer.trim();
         if (trimmed.startsWith("data:")) {
           const jsonPayload = trimmed.substring(5).trim();
@@ -274,10 +350,14 @@ export default function App() {
 
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsgId ? { ...m, isStreaming: false } : m
-        )
+          m.id === assistantMsgId ? { ...m, isStreaming: false } : m,
+        ),
       );
     } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.log("Fetch request aborted.");
+        return;
+      }
       console.error(err);
       setError(err.message);
       addLog("error", err.message);
@@ -291,11 +371,41 @@ export default function App() {
                 isStreaming: false,
                 error: true,
               }
-            : m
+            : m,
         );
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEditSave = (msgId: string, newText: string) => {
+    // Find edited message index
+    const messageIndex = messages.findIndex((m) => m.id === msgId);
+    if (messageIndex !== -1) {
+      // Discard all subsequent history
+      const updatedMessages = messages.slice(0, messageIndex);
+      const targetMessage = messages[messageIndex];
+      setMessages(updatedMessages);
+
+      // Resubmit edited prompt with original image attached if any
+      handleSendMessage(newText, targetMessage.imageBase64);
+    }
+  };
+
+  const handleRetry = (msgId: string) => {
+    // Retry finding the parent user message preceding this assistant message
+    const msgIndex = messages.findIndex((m) => m.id === msgId);
+    if (msgIndex > 0) {
+      const parentUserMsg = messages[msgIndex - 1];
+      if (parentUserMsg && parentUserMsg.role === "user") {
+        // Discard this message and subsequent items
+        const updatedMessages = messages.slice(0, msgIndex);
+        setMessages(updatedMessages);
+
+        // Resubmit
+        handleSendMessage(parentUserMsg.content, parentUserMsg.imageBase64);
+      }
     }
   };
 
@@ -328,6 +438,12 @@ export default function App() {
         showConfig={showConfig}
         setShowConfig={setShowConfig}
         setError={setError}
+        customApiKey={customApiKey}
+        setCustomApiKey={setCustomApiKey}
+        customBaseUrl={customBaseUrl}
+        setCustomBaseUrl={setCustomBaseUrl}
+        customModel={customModel}
+        setCustomModel={setCustomModel}
       />
 
       {/* FLOATING SIDEBAR OPEN TRIGGER */}
@@ -357,13 +473,24 @@ export default function App() {
               setUseMock={setUseMock}
               handleSendMessage={handleSendMessage}
               messagesEndRef={messagesEndRef}
+              onEditSave={handleEditSave}
+              onRetry={handleRetry}
+              isLoading={isLoading}
             />
 
-            <InputBar isLoading={isLoading} useMock={useMock} onSend={handleSendMessage} />
+            <InputBar
+              isLoading={isLoading}
+              useMock={useMock}
+              onSend={handleSendMessage}
+              onStop={handleStopStream}
+              disableImageUpload={!modelSupportsImage}
+            />
           </div>
 
           {/* COLLAPSIBLE LOGS SYSTEM CONSOLE */}
-          {showConfig && <LogConsole rawLogs={rawLogs} setRawLogs={setRawLogs} />}
+          {showConfig && (
+            <LogConsole rawLogs={rawLogs} setRawLogs={setRawLogs} />
+          )}
         </div>
       </div>
     </div>

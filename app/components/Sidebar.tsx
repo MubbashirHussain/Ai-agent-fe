@@ -22,6 +22,13 @@ interface SidebarProps {
   showConfig: boolean;
   setShowConfig: (v: boolean) => void;
   setError: (err: string | null) => void;
+  // Custom API configurations & Model selection
+  customApiKey: string;
+  setCustomApiKey: (v: string) => void;
+  customBaseUrl: string;
+  setCustomBaseUrl: (v: string) => void;
+  customModel: string;
+  setCustomModel: (v: string) => void;
 }
 
 export default function Sidebar({
@@ -35,6 +42,12 @@ export default function Sidebar({
   showConfig,
   setShowConfig,
   setError,
+  customApiKey,
+  setCustomApiKey,
+  customBaseUrl,
+  setCustomBaseUrl,
+  customModel,
+  setCustomModel,
 }: SidebarProps) {
   return (
     <div
@@ -65,12 +78,12 @@ export default function Sidebar({
         </div>
 
         {/* Active Navigation List */}
-        <div className="flex-1 px-3 overflow-y-auto space-y-1 py-2">
+        <div className="flex-1 px-3 overflow-y-auto space-y-1.5 py-2">
           <span className="text-[10px] font-semibold tracking-wider text-zinc-500 uppercase px-3 mb-1.5 block">
             Environment Setup
           </span>
 
-          <div className="bg-[#212121] border border-zinc-850 p-3 rounded-xl mb-4 space-y-2.5 mx-1">
+          <div className="bg-[#212121] border border-zinc-700 p-3 rounded-xl mb-3 space-y-2.5 mx-1">
             <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
               <span>Select Target</span>
               <span
@@ -110,7 +123,7 @@ export default function Sidebar({
           </div>
 
           {/* Target Endpoint Config */}
-          <div className="bg-[#212121]/50 border border-zinc-850/60 rounded-xl p-3 space-y-2 mx-1">
+          <div className="bg-[#212121]/50 border border-zinc-700/60 rounded-xl p-3 space-y-2 mx-1">
             <span className="text-[10px] font-medium tracking-wide text-zinc-400 uppercase block">
               API endpoint
             </span>
@@ -120,14 +133,59 @@ export default function Sidebar({
               onChange={(e) => setApiUrl(e.target.value)}
               disabled={useMock}
               className="w-full bg-[#171717] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
-              placeholder="http://localhost:3000/generate"
+              placeholder="http://localhost:3001/generate"
             />
-            <span className="text-[9px] text-zinc-500 block leading-normal">
-              Requires CORS enablement headers matching browser port rules.
-            </span>
           </div>
 
-          <div className="pt-4 px-1.5 space-y-1">
+          {/* API Keys Configuration */}
+          <div className="bg-[#212121]/50 border border-zinc-700/60 rounded-xl p-3 space-y-2 mx-1">
+            <span className="text-[10px] font-medium tracking-wide text-zinc-400 uppercase block">
+              Custom Configurations
+            </span>
+            <div className="space-y-2">
+              <div>
+                <label className="text-[9px] text-zinc-500 uppercase block mb-1">
+                  API key
+                </label>
+                <input
+                  type="password"
+                  value={customApiKey}
+                  onChange={(e) => setCustomApiKey(e.target.value)}
+                  disabled={useMock}
+                  className="w-full bg-[#171717] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
+                  placeholder="Optional (Uses default ENV)"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] text-zinc-500 uppercase block mb-1">
+                  Base URL
+                </label>
+                <input
+                  type="text"
+                  value={customBaseUrl}
+                  onChange={(e) => setCustomBaseUrl(e.target.value)}
+                  disabled={useMock}
+                  className="w-full bg-[#171717] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
+                  placeholder="Optional (OpenRouter default)"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] text-zinc-500 uppercase block mb-1">
+                  Target Model
+                </label>
+                <input
+                  type="text"
+                  value={customModel}
+                  onChange={(e) => setCustomModel(e.target.value)}
+                  disabled={useMock}
+                  className="w-full bg-[#171717] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 outline-none focus:border-zinc-700 transition-colors disabled:opacity-50"
+                  placeholder="openai/gpt-oss-120b:free"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 px-1.5 space-y-1">
             <span className="text-[10px] font-semibold tracking-wider text-zinc-500 uppercase block mb-2">
               Capabilities Included
             </span>
