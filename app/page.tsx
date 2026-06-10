@@ -1,9 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect, FormEvent } from "react";
 import {
-  Send,
   Bot,
-  User,
   Sparkles,
   Trash2,
   Terminal,
@@ -11,9 +9,6 @@ import {
   RefreshCw,
   Code,
   AlertCircle,
-  Clock,
-  Settings,
-  HelpCircle,
   Wifi,
   WifiOff,
   ChevronLeft,
