@@ -63,7 +63,7 @@ export default function App() {
   useEffect(() => {
     // Determine backend base URL from the current apiUrl (e.g., http://localhost:3001/generate)
     const backendBase = apiUrl.replace(/\/generate$/, "");
-    const modelToCheck = customModel || process.env.MODEL || "";
+    const modelToCheck = customModel || process.env.NEXT_PUBLIC_MODEL || "";
     if (!modelToCheck) return;
     fetch(
       `${backendBase}/model-support?model=${encodeURIComponent(modelToCheck)}`,
